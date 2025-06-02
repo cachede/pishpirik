@@ -1,11 +1,7 @@
 use std::io;
-use std::str::FromStr;
+use crate::controller::view::view_trait::View;
 
-pub struct TerminalView {
-
-
-
-}
+pub struct TerminalView {}
 
 impl TerminalView {
 
@@ -28,15 +24,37 @@ impl TerminalView {
     pub fn show_current_counter(&self, counter: u32) {
         println!("Current counter: {}", counter);
     }
+}
 
-    pub fn get_user_input<T: FromStr>(&self) -> Result<T, <T as FromStr>::Err> {
+impl View for TerminalView {
+    fn show_cards(&self, cards: Vec<(String, String, String)>) {
+
+    }
+
+    fn show_own_score(&self, score: usize) {
+
+    }
+    fn show_cardstack_top_card(&self, top_card: (String, String, String)) {
+
+    }
+    fn show_cardstack_score(&self, score: usize) {
+
+    }
+    fn show_all_players_score(&self, players_score: (&str, usize)) {
+
+    }
+    fn show_remaining_cards(&self, amount_remaining_cards: usize) {
+
+    }
+
+    fn get_user_input(&self) -> Result<String, String> {
         let mut input: String = String::new();
 
         io::stdin()
             .read_line(&mut input)
             .expect("Input could not be read");
 
-        input.trim().parse()
+        Ok(input.trim().parse().unwrap())
     }
 
 }
