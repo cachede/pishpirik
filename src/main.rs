@@ -6,6 +6,75 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 use colored::Colorize;
 
+type Entities = HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>;
+type Cards = Vec<HashMap<&'static str, ecs::Components>>;
+
+const DISCARD_PILE_MIN_CAPACITY: usize = 4;
+
+fn fill_discard_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
+    let games = entities.get_mut("games")?;
+    let game = games.get_mut(0)?;
+    let mut discard_pile = match game.get_mut("discard pile") {
+        Some(ecs::Components::V(vec)) => vec,
+        _ => return None
+    };
+
+    let mut index = 0;
+
+    while discard_pile.len() < DISCARD_PILE_MIN_CAPACITY {
+
+        let card1 = cards.get_mut(index)?;
+        let mut is_not_jack = false;
+
+        if let (ecs::Components::S(pic), ecs::Components::S(color)) =
+            (card1.get("value")?, card1.get("color")?)
+        {
+            if *pic != "Jack" {
+
+                is_not_jack = true;
+                println!("next card is {} of {}, putting on top of discard pile\r", pic, color);
+
+            } else {
+
+                println!("next card is {} of {}, not putting on top of discard pile\r", pic, color);
+            }
+
+            if is_not_jack {
+                discard_pile.push(cards.remove(index));
+            }
+
+            index += 1;
+
+        }
+
+    }
+
+    println!("\r");
+    println!("discard pile is now {} big", discard_pile.len());
+    println!("\r");
+
+
+    Some(())
+}
+
+fn fill_draw_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
+
+    let games = entities.get_mut("games")?;
+    let game = games.get_mut(0)?;
+    let mut draw_pile = match game.get_mut("draw pile") {
+        Some(ecs::Components::V(vec)) => vec,
+        _ => return None
+    };
+
+    draw_pile.append(cards);
+
+    println!("\r");
+    println!("draw pile is now {} big", draw_pile.len());
+    println!("\r");
+
+    Some(())
+}
+
 fn main() {
 
     let mut entities = ecs::new_entities_repo();
@@ -50,81 +119,15 @@ fn main() {
     game.insert("new turn", ecs::Components::B(true));
     ecs::add_entity_to_group(&mut entities, game, "games");
 
-    let mut cards = create_deck();
+    let mut cards: Cards = create_deck();
 
     cards.shuffle(&mut thread_rng());
 
-    if let Some(games) = entities.get_mut("games"){
+    fill_discard_pile(&mut entities, &mut cards);
 
-        if let Some(game) = games.get_mut(0){
+    fill_draw_pile(&mut entities, &mut cards);
 
-            if let Some(ecs::Components::V(discard_pile)) = game.get_mut("discard pile"){
-
-                let mut index = 0;
-
-                while discard_pile.len() < 4{
-
-                    if let Some(card) = cards.get_mut(index){
-
-                        let mut is_not_jack = false;
-
-                        if let (Some(ecs::Components::S(value)), Some(ecs::Components::S(color))) = (card.get("value"), card.get("color")){
-
-                            if *value != "Jack"{
-
-                                is_not_jack = true;
-
-                                println!("next card is {} of {}, putting on top of discard pile\r", value, color);
-
-                            } else {
-
-                                println!("next card is {} of {}, not putting on top of discard pile\r", value, color);
-
-                            }
-
-                        }
-
-                        if is_not_jack{
-
-                            discard_pile.push(cards.remove(index));
-
-                        }
-
-                    }
-
-                    index = index + 1;
-
-                }
-
-                println!("\r");
-                println!("discard pile is now {} big", discard_pile.len());
-                println!("\r");
-
-            }
-
-            if let Some(ecs::Components::V(draw_pile)) = game.get_mut("draw pile"){
-
-                for card in cards{
-
-                    if let (Some(ecs::Components::S(value)), Some(ecs::Components::S(color))) = (card.get("value"), card.get("color")){
-
-                        println!("putting {} of {} in draw pile\r", value, color);
-
-                    }
-
-                    draw_pile.push(card);
-
-                }
-
-                println!("\r");
-                println!("draw pile is now {} big", draw_pile.len());
-                println!("\r");
-
-            }
-
-        }
-
-    }
+    println!("CARDS VEC SOLLTE HIER 0 SEIN {}", cards.len());
 
     ecs::add_system(&mut systems, exit_game_system);
     ecs::add_system(&mut systems, draw_cards_system);
