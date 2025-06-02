@@ -15,7 +15,7 @@ const DISCARD_PILE_MIN_CAPACITY: usize = 4;
 fn fill_discard_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
     let games = entities.get_mut("games")?;
     let game = games.get_mut(0)?;
-    let mut discard_pile = match game.get_mut("discard pile") {
+    let discard_pile = match game.get_mut("discard pile") {
         Some(ecs::Components::V(vec)) => vec,
         _ => return None
     };
@@ -62,7 +62,7 @@ fn fill_draw_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
 
     let games = entities.get_mut("games")?;
     let game = games.get_mut(0)?;
-    let mut draw_pile = match game.get_mut("draw pile") {
+    let draw_pile = match game.get_mut("draw pile") {
         Some(ecs::Components::V(vec)) => vec,
         _ => return None
     };
@@ -146,7 +146,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 }
 
-fn new_turn_system(entities: &mut Entities, _input: &HashMap<&'static str, bool>){
+
+fn all_hands_empty(entities: &Entities) -> bool {
 
     let mut all_hands_empty = true;
 
@@ -168,10 +169,14 @@ fn new_turn_system(entities: &mut Entities, _input: &HashMap<&'static str, bool>
 
     }
 
-    if all_hands_empty{
+    all_hands_empty
 
+}
+
+fn new_turn_system(entities: &mut Entities, _input: &HashMap<&'static str, bool>){
+
+    if all_hands_empty(entities){
         return;
-
     }
 
     if let Some(games) = entities.get_mut("games"){
@@ -280,7 +285,7 @@ fn new_turn_system(entities: &mut Entities, _input: &HashMap<&'static str, bool>
 
 }
 
-fn play_cards_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>, input: &HashMap<&'static str, bool>){
+fn play_cards_system(entities: &mut Entities, input: &HashMap<&'static str, bool>){
 
     let mut active_player: i32 = 1;
     let mut temporary_stack: Vec<HashMap<&'static str, ecs::Components>> = vec![];
@@ -534,27 +539,7 @@ fn play_cards_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static s
 
 fn draw_cards_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>, _input: &HashMap<&'static str, bool>){
 
-    let mut all_hands_empty = true;
-
-    if let Some(players) = entities.get("players"){
-
-        for player in players{
-
-            if let Some(ecs::Components::V(hand)) = player.get("hand"){
-
-                if !hand.is_empty(){
-
-                    all_hands_empty = false
-
-                }
-
-            }
-
-        }
-
-    }
-
-    if all_hands_empty{
+    if all_hands_empty(entities){
 
         let mut drawn_cards: Vec<HashMap<&'static str, ecs::Components>> = vec![];
         let mut draw_pile_size = 0;
@@ -700,25 +685,6 @@ fn exit_game(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs:
 fn exit_game_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>, input: &HashMap<&'static str, bool>){
 
     let mut draw_pile_empty = false;
-    let mut all_hands_empty = true;
-
-    if let Some(players) = entities.get("players"){
-
-        for player in players{
-
-            if let Some(ecs::Components::V(hand)) = player.get("hand"){
-
-                if !hand.is_empty(){
-
-                    all_hands_empty = false
-
-                }
-
-            }
-
-        }
-
-    }
 
     if let Some(games) = entities.get("games"){
 
@@ -738,7 +704,7 @@ fn exit_game_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static st
 
     }
 
-    if draw_pile_empty && all_hands_empty{
+    if draw_pile_empty && all_hands_empty(entities){
 
         exit_game(entities);
 
