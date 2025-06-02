@@ -5,6 +5,7 @@ use std::process::exit;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use colored::Colorize;
+use std::sync::atomic::{AtomicI32, Ordering};
 
 type Entities = HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>;
 type Cards = Vec<HashMap<&'static str, ecs::Components>>;
@@ -75,41 +76,36 @@ fn fill_draw_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
     Some(())
 }
 
-fn main() {
+fn create_player(player: &mut HashMap<&'static str, ecs::Components>, player_name: &'static str) {
+
+    static PLAYER_ID: AtomicI32 = AtomicI32::new(1);
+
+    player.insert("name", ecs::Components::S(player_name));
+    player.insert("number", ecs::Components::I(PLAYER_ID.fetch_add(1, Ordering::Relaxed)));
+    player.insert("hand", ecs::Components::V(vec![]));
+    player.insert("stash", ecs::Components::V(vec![]));
+    player.insert("points", ecs::Components::I(0));
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut entities = ecs::new_entities_repo();
     let mut systems = ecs::new_systems_repo();
 
     let mut player1 = ecs::create_new_entity();
-    player1.insert("name", ecs::Components::S("player1"));
-    player1.insert("number", ecs::Components::I(1));
-    player1.insert("hand", ecs::Components::V(vec![]));
-    player1.insert("stash", ecs::Components::V(vec![]));
-    player1.insert("points", ecs::Components::I(0));
+    create_player(&mut player1, "player1");
     ecs::add_entity_to_group(&mut entities, player1, "players");
 
     let mut player2 = ecs::create_new_entity();
-    player2.insert("name", ecs::Components::S("player2"));
-    player2.insert("number", ecs::Components::I(2));
-    player2.insert("hand", ecs::Components::V(vec![]));
-    player2.insert("stash", ecs::Components::V(vec![]));
-    player2.insert("points", ecs::Components::I(0));
+    create_player(&mut player2, "player2");
     ecs::add_entity_to_group(&mut entities, player2, "players");
 
     let mut player3 = ecs::create_new_entity();
-    player3.insert("name", ecs::Components::S("player3"));
-    player3.insert("number", ecs::Components::I(3));
-    player3.insert("hand", ecs::Components::V(vec![]));
-    player3.insert("stash", ecs::Components::V(vec![]));
-    player3.insert("points", ecs::Components::I(0));
+    create_player(&mut player3, "player3");
     ecs::add_entity_to_group(&mut entities, player3, "players");
 
     let mut player4 = ecs::create_new_entity();
-    player4.insert("name", ecs::Components::S("player4"));
-    player4.insert("number", ecs::Components::I(4));
-    player4.insert("hand", ecs::Components::V(vec![]));
-    player4.insert("stash", ecs::Components::V(vec![]));
-    player4.insert("points", ecs::Components::I(0));
+    create_player(&mut player4, "player4");
     ecs::add_entity_to_group(&mut entities, player4, "players");
 
     let mut game = ecs::create_new_entity();
@@ -123,9 +119,15 @@ fn main() {
 
     cards.shuffle(&mut thread_rng());
 
-    fill_discard_pile(&mut entities, &mut cards);
+    match fill_discard_pile(&mut entities, &mut cards) {
+        Some(()) => {}
+        None => {return Err("Failed to fill the discard pile".into());}
+    }
 
-    fill_draw_pile(&mut entities, &mut cards);
+    match fill_draw_pile(&mut entities, &mut cards) {
+        Some(()) => {}
+        None => {return Err("Failed to fill the draw pile".into());}
+    }
 
     println!("CARDS VEC SOLLTE HIER 0 SEIN {}", cards.len());
 
@@ -144,7 +146,7 @@ fn main() {
 
 }
 
-fn new_turn_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>, _input: &HashMap<&'static str, bool>){
+fn new_turn_system(entities: &mut Entities, _input: &HashMap<&'static str, bool>){
 
     let mut all_hands_empty = true;
 
