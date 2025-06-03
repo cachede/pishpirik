@@ -37,22 +37,6 @@ pub fn add_entity_to_group(
     entity_list.push(entity);
 }
 
-pub fn remove_entity_from_group_at(
-    entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>,
-    group: &'static str,
-    index: usize
-){
-    if let Some(group) = entities.get_mut(group){
-
-        if index < group.len(){
-
-            group.remove(index);
-
-        }
-
-    }
-}
-
 pub fn create_new_entity() -> HashMap<&'static str, Components>{
     HashMap::new()
 }
