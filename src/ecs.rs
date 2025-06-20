@@ -2,7 +2,9 @@ use std::fmt;
 use std::collections::HashMap;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use crossterm::terminal::{enable_raw_mode, disable_raw_mode};
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Clone)]
 pub enum Components {
 
     B(bool),
