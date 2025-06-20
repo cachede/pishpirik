@@ -24,7 +24,7 @@ impl GameServer {
         });
     }
 
-    pub fn add_player(&mut self, address: std::net::SocketAddr) {
+    pub fn add_player(&mut self, address: std::net::SocketAddr) -> std::io::Result<()> {
         let mut input_buffer = HashMap::new();
         for key in 1..=4 {
             input_buffer.insert(key, false);
@@ -34,6 +34,10 @@ impl GameServer {
             address: address,
             input_buffer: input_buffer
         });
+
+        let player_id = (self.players.len() - 1) as u8;
+        self.socket.send_to(&[player_id], address)?;
+        Ok(())
     }
 
     // entities werden als json enkodierung an den client gesendet
