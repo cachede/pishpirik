@@ -213,7 +213,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Err(e) => println!("failed to send entities to all clients: {}", e)
         }
 
-        std::thread::sleep(std::time::Duration::from_millis(10000));
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
 
 }
