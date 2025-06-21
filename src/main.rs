@@ -169,12 +169,51 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ecs::add_system(&mut systems, play_cards_system);
     ecs::add_system(&mut systems, new_turn_system);
 
-    ecs::enable_input();
+    //ecs::enable_input();
+
+    let mut server = network::GameServer::new("0.0.0.0:37545").unwrap(); // hier unwrap weil wir im setup das programm beenden wollen wenn der server nicht gestartet werden kann
 
     loop{
 
-        ecs::process(&mut entities, &systems);
+        // der server wird gepolled, alle nachrichten werden verarbeitet
+        match server.poll() {
+            Ok(_) => println!("polled server successfully"),
+            Err(e) => println!("error polling server: {}", e)
+        }
+        // ein leerer input buffer wird vorbereitet, falls kein spieler gefunden wird wird der leere input buffer verwendet (zb wenn noch nicht jeder verbunden ist)
+        let mut input_buffer = HashMap::new();
+        for key in 1..=4 {
+            input_buffer.insert(key, false);
+        }
 
+        // der input buffer vom aktiven spieler wird genommen
+        if let Some(games) = entities.get(GAMES) {
+            if let Some(game) = games.get(0) {
+                if let Some(ecs::Components::I(active_player)) = game.get(ACTIVE_PLAYER) {
+                    if (*active_player as usize) < server.players.len() {
+                        input_buffer = server.players[*active_player as usize].input_buffer.clone();
+                    } else {
+                        println!("Player {} not connected yet, using empty input buffer", active_player);
+                    }
+                }
+            }
+        }
+
+        // alle input buffer werden zurück gesetzt
+        for player in &mut server.players {
+            for key in 1..=4 {
+                player.input_buffer.insert(key, false);
+            }
+        }
+
+        ecs::process(&mut entities, &systems, &input_buffer);
+
+        match server.send_entities(&entities) {
+            Ok(_) => println!("successfully sent entities to all clients"),
+            Err(e) => println!("failed to send entities to all clients: {}", e)
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(10000));
     }
 
 }
@@ -205,7 +244,7 @@ fn all_hands_empty(entities: &Entities) -> bool {
 
 }
 
-fn new_turn_system(entities: &mut Entities, _input: &HashMap<&'static str, bool>){
+fn new_turn_system(entities: &mut Entities, _input: &HashMap<u8, bool>){
 
     if all_hands_empty(entities){
         return;
@@ -224,6 +263,7 @@ fn new_turn_system(entities: &mut Entities, _input: &HashMap<&'static str, bool>
                 } else {
 
                     *new_turn = false;
+                    println!("new turn has been processed");
 
                 }
 
@@ -317,7 +357,7 @@ fn new_turn_system(entities: &mut Entities, _input: &HashMap<&'static str, bool>
 
 }
 
-fn play_cards_system(entities: &mut Entities, input: &HashMap<&'static str, bool>){
+fn play_cards_system(entities: &mut Entities, input: &HashMap<u8, bool>){
 
     let mut active_player: i32 = 1;
     let mut temporary_stack: Vec<HashMap<&'static str, ecs::Components>> = vec![];
@@ -349,29 +389,34 @@ fn play_cards_system(entities: &mut Entities, input: &HashMap<&'static str, bool
 
                         if !hand.is_empty(){
 
-                            if let (Some(one), Some(two), Some(three), Some(four)) = (input.get("1"), input.get("2"), input.get("3"), input.get("4")){
+                            println!("processing input");
 
-                                if *one && hand.len() >= 1{
+                            let (one, two, three, four) = (input.get(&0u8).unwrap_or(&false), input.get(&1u8).unwrap_or(&false), input.get(&2u8).unwrap_or(&false), input.get(&3u8).unwrap_or(&false));
 
-                                    played_card = hand.remove(0);
+                            if *one && hand.len() >= 1{
 
-                                } else if *two && hand.len() >= 2{
+                                played_card = hand.remove(0);
+                                println!("1 pressed");
 
-                                    played_card = hand.remove(1);
+                            } else if *two && hand.len() >= 2{
 
-                                } else if *three && hand.len() >= 3{
+                                played_card = hand.remove(1);
+                                println!("2 pressed");
 
-                                    played_card = hand.remove(2);
+                            } else if *three && hand.len() >= 3{
 
-                                } else if *four && hand.len() >= 4{
+                                played_card = hand.remove(2);
+                                println!("3 pressed");
 
-                                    played_card = hand.remove(3);
+                            } else if *four && hand.len() >= 4{
 
-                                } else {
+                                played_card = hand.remove(3);
+                                println!("4 pressed");
 
-                                    return;
+                            } else {
 
-                                }
+                                println!("no input");
+                                return;
 
                             }
 
@@ -563,7 +608,7 @@ fn play_cards_system(entities: &mut Entities, input: &HashMap<&'static str, bool
 
 }
 
-fn draw_cards_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>, _input: &HashMap<&'static str, bool>){
+fn draw_cards_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>, _input: &HashMap<u8, bool>){
 
     if all_hands_empty(entities){
 
@@ -703,12 +748,12 @@ fn exit_game(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs:
 
     }
 
-    ecs::disable_input();
+    //ecs::disable_input();
     exit(0);
 
 }
 
-fn exit_game_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>, input: &HashMap<&'static str, bool>){
+fn exit_game_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>, _input: &HashMap<u8, bool>){
 
     let mut draw_pile_empty = false;
 
@@ -736,15 +781,15 @@ fn exit_game_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static st
 
     }
 
-    if let Some(back) = input.get("back"){
-
-        if *back{
-
-            exit_game(entities);
-
-        }
-
-    }
+//    if let Some(back) = input.get("back"){
+//
+//        if *back{
+//
+//            exit_game(entities);
+//
+//        }
+//
+//    }
 
 }
 

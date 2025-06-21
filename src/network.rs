@@ -16,6 +16,7 @@ pub struct GameServer {
 
 impl GameServer {
     pub fn new(bind_addr: &'static str) -> std::io::Result<Self> {
+        println!("starting server");
         let socket = UdpSocket::bind(bind_addr)?;
         socket.set_nonblocking(true)?;
         return Ok(GameServer {
@@ -53,22 +54,35 @@ impl GameServer {
 
     // einzelner byte wird über udp vom client an den server gesendet dieser byte
     // wenn ein process loop startet sollte der server den buffer des aktiven spielers für den process verwenden und alle anderen leeren
-    pub fn poll_input(&mut self) -> std::io::Result<()> {
-        let mut buf= [0; 1];
+    pub fn poll(&mut self) -> std::io::Result<()> {
+        let mut buf = [0; 1];
 
         match self.socket.recv_from(&mut buf) {
             Ok((_, src_addr)) => {
+                // Handle received data
                 if let Some(player) = self.players.iter_mut().find(|p| p.address == src_addr) {
                     let input_byte = buf[0];
                     if (1..=4).contains(&input_byte) {
                         if let Some(value) = player.input_buffer.get_mut(&input_byte) {
                             *value = true;
                         }
+                    } else {
+                        println!("received illegal input");
+                    }
+                } else {
+                    if self.players.len() < 4 {
+                        self.add_player(src_addr)?;
+                    } else {
+                        println!("received message from new client, but already have 4 players so it is ignored");
                     }
                 }
+                Ok(())
             }
-            Err(e) => return Err(e)
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                // No data available - not an actual error
+                Ok(())
+            }
+            Err(e) => Err(e) // Other errors are propagated
         }
-        Ok(())
     }
 }

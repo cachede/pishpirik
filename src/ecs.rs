@@ -43,25 +43,25 @@ pub fn create_new_entity() -> HashMap<&'static str, Components>{
     HashMap::new()
 }
 
-pub fn new_systems_repo() -> Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>)> {
+pub fn new_systems_repo() -> Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>)> {
     vec![]
 }
 
 pub fn add_system(
-    systems: &mut Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>)>,
-    system: fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>)
+    systems: &mut Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>)>,
+    system: fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>)
 ){
     systems.push(system);
 }
 
 pub fn process(
     entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>,
-    systems: &Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>)>
+    systems: &Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>)>,
+    input: &HashMap<u8, bool>
 ){
-    let current_input = get_input();
     for system in systems{
 
-        system(entities, &current_input);
+        system(entities, &input);
 
     }
 }
