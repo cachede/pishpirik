@@ -67,7 +67,7 @@ impl GameServer {
                             *value = true;
                         }
                     } else {
-                        println!("received illegal input");
+                        println!("received illegal input: {}", input_byte);
                     }
                 } else {
                     if self.players.len() < 4 {

@@ -190,10 +190,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(games) = entities.get(GAMES) {
             if let Some(game) = games.get(0) {
                 if let Some(ecs::Components::I(active_player)) = game.get(ACTIVE_PLAYER) {
-                    if (*active_player as usize) < server.players.len() {
-                        input_buffer = server.players[*active_player as usize].input_buffer.clone();
+                    let player_index = (*active_player as usize).saturating_sub(1);
+                    if player_index < server.players.len() {
+                        input_buffer = server.players[player_index].input_buffer.clone();
                     } else {
-                        println!("Player {} not connected yet, using empty input buffer", active_player);
+                        println!("Player {} not connected (have {} players)",
+                                 active_player, server.players.len());
                     }
                 }
             }
@@ -391,7 +393,7 @@ fn play_cards_system(entities: &mut Entities, input: &HashMap<u8, bool>){
 
                             println!("processing input");
 
-                            let (one, two, three, four) = (input.get(&0u8).unwrap_or(&false), input.get(&1u8).unwrap_or(&false), input.get(&2u8).unwrap_or(&false), input.get(&3u8).unwrap_or(&false));
+                            let (one, two, three, four) = (input.get(&1u8).unwrap_or(&false), input.get(&2u8).unwrap_or(&false), input.get(&3u8).unwrap_or(&false), input.get(&4u8).unwrap_or(&false));
 
                             if *one && hand.len() >= 1{
 
