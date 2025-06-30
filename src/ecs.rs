@@ -6,7 +6,7 @@ use crossterm::terminal::{enable_raw_mode, disable_raw_mode};
 pub enum Components {
 
     B(bool),
-    I(i32),
+    I(usize),
     S(&'static str),
     V(Vec<HashMap<&'static str, Components>>)
 
@@ -57,20 +57,20 @@ pub fn create_new_entity() -> HashMap<&'static str, Components>{
     HashMap::new()
 }
 
-pub fn new_systems_repo() -> Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>)> {
+pub fn new_systems_repo() -> Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>) -> Option<()>> {
     vec![]
 }
 
 pub fn add_system(
-    systems: &mut Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>)>,
-    system: fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>)
+    systems: &mut Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>) -> Option<()>>,
+    system: fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>) -> Option<()>,
 ){
     systems.push(system);
 }
 
 pub fn process(
     entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>,
-    systems: &Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>)>
+    systems: &Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>) -> Option<()>>
 ){
     let current_input = get_input();
     for system in systems{
