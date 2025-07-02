@@ -2,7 +2,9 @@ use std::fmt;
 use std::collections::HashMap;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use crossterm::terminal::{enable_raw_mode, disable_raw_mode};
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Clone)]
 pub enum Components {
 
     B(bool),
@@ -37,45 +39,29 @@ pub fn add_entity_to_group(
     entity_list.push(entity);
 }
 
-pub fn remove_entity_from_group_at(
-    entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>,
-    group: &'static str,
-    index: usize
-){
-    if let Some(group) = entities.get_mut(group){
-
-        if index < group.len(){
-
-            group.remove(index);
-
-        }
-
-    }
-}
-
 pub fn create_new_entity() -> HashMap<&'static str, Components>{
     HashMap::new()
 }
 
-pub fn new_systems_repo() -> Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>) -> Option<()>> {
+pub fn new_systems_repo() -> Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>) -> Option<()>> {
     vec![]
 }
 
 pub fn add_system(
-    systems: &mut Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>) -> Option<()>>,
-    system: fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>) -> Option<()>,
+    systems: &mut Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>) -> Option<()>>,
+    system: fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>) -> Option<()>,
 ){
     systems.push(system);
 }
 
 pub fn process(
     entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>,
-    systems: &Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<&'static str, bool>) -> Option<()>>
+    systems: &Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>) -> Option<()>>,
+    input: &HashMap<u8, bool>
 ){
-    let current_input = get_input();
     for system in systems{
 
-        system(entities, &current_input);
+        system(entities, &input);
 
     }
 }
