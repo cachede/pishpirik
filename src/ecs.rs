@@ -61,7 +61,14 @@ pub fn process(
 ){
     for system in systems{
 
-        system(entities, &input);
+        match system(entities, &input) {
+            Some(()) => {
+                // all good
+            },
+            None => {
+                // some kind of error in system TODO
+            }
+        }
 
     }
 }
