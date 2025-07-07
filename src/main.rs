@@ -178,8 +178,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // der server wird gepolled, alle nachrichten werden verarbeitet
         match server.poll() {
-            Ok(_) => println!("polled server successfully"),
-            Err(e) => println!("error polling server: {}", e)
+            Ok(_) => () /*println!("polled server successfully")*/,
+            Err(e) => () /*println!("error polling server: {}", e)*/
         }
         // ein leerer input buffer wird vorbereitet, falls kein spieler gefunden wird wird der leere input buffer verwendet (zb wenn noch nicht jeder verbunden ist)
         let mut input_buffer = HashMap::new();
@@ -195,8 +195,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if player_index < server.players.len() {
                         input_buffer = server.players[player_index].input_buffer.clone();
                     } else {
-                        println!("Player {} not connected (have {} players)",
-                                 active_player, server.players.len());
+                        /*println!("Player {} not connected (have {} players)",
+                                 active_player, server.players.len());*/
                     }
                 }
             }
@@ -212,11 +212,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ecs::process(&mut entities, &systems, &input_buffer);
 
         match server.send_entities(&entities) {
-            Ok(_) => println!("successfully sent entities to all clients"),
-            Err(e) => println!("failed to send entities to all clients: {}", e)
+            Ok(_) => ()/*println!("successfully sent entities to all clients")*/,
+            Err(e) => ()/*println!("failed to send entities to all clients: {}", e)*/
         }
 
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_millis(50));
     }
 
 }
