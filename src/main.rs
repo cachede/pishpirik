@@ -422,20 +422,10 @@ fn player_add_cardstack_points(
     }
 }
 
-fn get_active_player_index(entities: &mut Entities) -> Option<usize> {
-    let mut games = entities.get_mut(GAMES)?;
-    let game = games.get_mut(0)?;
-    if let Some(Components::I(i)) = game.get(ACTIVE_PLAYER) {
-        Some(*i)
-    } else {
-        None
-    }
-}
-
 fn play_cards_system(entities: &mut Entities, input: &HashMap<u8, bool>) -> Option<()> {
     let mut played_card: HashMap<&'static str, Components> = HashMap::new();
 
-    let active_player_index = get_active_player_index(entities)?;
+    let active_player_index = get_active_player(entities)?;
 
     // get played card
     played_card = get_played_card(entities, input)?; //hier geht er raus und discard pile ist leer
