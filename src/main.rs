@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use std::process::exit;
 
 use rand::{seq::SliceRandom};
-use rand::thread_rng;
+use crate::ecs::Components;
 use colored::Colorize;
-use std::sync::atomic::{AtomicI32, Ordering};
+use rand::thread_rng;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 type Entities = HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>;
 type Cards = Vec<HashMap<&'static str, ecs::Components>>;
@@ -50,13 +51,11 @@ fn fill_discard_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
     let game = games.get_mut(0)?;
     let discard_pile = match game.get_mut(DISCARD_PILE) {
         Some(ecs::Components::V(vec)) => vec,
-        _ => return None
+        _ => return None,
     };
-
     let mut index = 0;
 
     while discard_pile.len() < DISCARD_PILE_MIN_CAPACITY {
-
         let card1 = cards.get_mut(index)?;
         let mut is_not_jack = false;
 
@@ -64,13 +63,16 @@ fn fill_discard_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
             (card1.get(VALUE)?, card1.get(COLOR)?)
         {
             if *pic != "Jack" {
-
                 is_not_jack = true;
-                println!("next card is {} of {}, putting on top of discard pile\r", pic, color);
-
+                println!(
+                    "next card is {} of {}, putting on top of discard pile\r",
+                    pic, color
+                );
             } else {
-
-                println!("next card is {} of {}, not putting on top of discard pile\r", pic, color);
+                println!(
+                    "next card is {} of {}, not putting on top of discard pile\r",
+                    pic, color
+                );
             }
 
             if is_not_jack {
@@ -78,26 +80,22 @@ fn fill_discard_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
             }
 
             index += 1;
-
         }
-
     }
 
     println!("\r");
     println!("discard pile is now {} big", discard_pile.len());
     println!("\r");
 
-
     Some(())
 }
 
 fn fill_draw_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
-
     let games = entities.get_mut(GAMES)?;
     let game = games.get_mut(0)?;
     let draw_pile = match game.get_mut(DRAW_PILE) {
         Some(ecs::Components::V(vec)) => vec,
-        _ => return None
+        _ => return None,
     };
 
     draw_pile.append(cards);
@@ -110,8 +108,7 @@ fn fill_draw_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
 }
 
 fn create_player(player: &mut HashMap<&'static str, ecs::Components>, player_name: &'static str) {
-
-    static PLAYER_ID: AtomicI32 = AtomicI32::new(1);
+    static PLAYER_ID: AtomicUsize = AtomicUsize::new(1);
 
     player.insert(NAME, ecs::Components::S(player_name));
     player.insert(PLAYER_NUMBER, ecs::Components::I(PLAYER_ID.fetch_add(1, Ordering::Relaxed)));
@@ -121,7 +118,6 @@ fn create_player(player: &mut HashMap<&'static str, ecs::Components>, player_nam
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let mut entities = ecs::new_entities_repo();
     let mut systems = ecs::new_systems_repo();
 
@@ -153,13 +149,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cards.shuffle(&mut thread_rng());
 
     match fill_discard_pile(&mut entities, &mut cards) {
-        Some(()) => {}
-        None => {return Err("Failed to fill the discard pile".into());}
+        Some(()) => {println!("FILLED DISCARD PILE")}
+        None => {
+            return Err("Failed to fill the discard pile".into());
+        }
     }
 
     match fill_draw_pile(&mut entities, &mut cards) {
         Some(()) => {}
-        None => {return Err("Failed to fill the draw pile".into());}
+        None => {
+            return Err("Failed to fill the draw pile".into());
+        }
     }
 
     println!("CARDS VEC SOLLTE HIER 0 SEIN {}", cards.len());
@@ -221,77 +221,61 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn all_hands_empty(entities: &Entities) -> bool {
-
     let mut all_hands_empty = true;
 
-    if let Some(players) = entities.get(PLAYERS){
-
-        for player in players{
-
-            if let Some(ecs::Components::V(hand)) = player.get(HAND){
-
-                if !hand.is_empty(){
-
+    if let Some(players) = entities.get(PLAYERS) {
+        for player in players {
+            if let Some(ecs::Components::V(hand)) = player.get("hand") {
+                if !hand.is_empty() {
                     all_hands_empty = false
-
                 }
-
             }
-
         }
-
     }
 
     all_hands_empty
-
 }
 
-fn new_turn_system(entities: &mut Entities, _input: &HashMap<u8, bool>){
+fn update_turn(entities: &mut Entities) -> Option<()> {
+    let mut games = entities.get_mut(GAMES)?;
+    let mut game = games.get_mut(0)?;
 
-    if all_hands_empty(entities){
-        return;
-    }
-
-    if let Some(games) = entities.get_mut(GAMES){
-
-        if let Some(game) = games.get_mut(0){
-
-            if let Some(ecs::Components::B(new_turn)) = game.get_mut(NEW_TURN){
-
-                if !*new_turn{
-
-                    return;
-
-                } else {
-
-                    *new_turn = false;
-                    println!("new turn has been processed");
-
-                }
-
-            }
-
+    if let Some(ecs::Components::B(new_turn)) = game.get_mut("new turn") {
+        if !*new_turn {
+            return None;
+        } else {
+            *new_turn = false;
+            println!("new turn has been processed");
         }
-
     }
 
-    let mut active_player: i32 = 1;
+    Some(())
+}
 
-    if let Some(games) = entities.get(GAMES){
+fn get_active_player(entities: &mut Entities) -> Option<usize> {
+    let games = entities.get_mut(GAMES)?;
+    let game = games.get_mut(0)?;
 
-        if let Some(game) = games.get(0){
+    let active_player_index = match game.get(ACTIVE_PLAYER) {
+        Some(Components::I(i)) => Some(*i),
+        _ => None,
+    };
 
-            if let Some(ecs::Components::I(active_player_temp)) = game.get(ACTIVE_PLAYER){
+    active_player_index
+}
 
-                active_player = *active_player_temp;
-
-            }
-
-        }
-
+fn new_turn_system(entities: &mut Entities, _input: &HashMap<u8, bool>) -> Option<()> {
+    if all_hands_empty(entities) {
+        return None;
     }
 
-    let output = format!("it is now player{}s turn", active_player);
+    update_turn(entities)?;
+
+    let active_player_index = get_active_player(entities)?;
+    let players = entities.get(PLAYERS)?;
+    let active_player = players.get(active_player_index - 1)?;
+
+    let output = format!("it is now player{}s turn", active_player_index);
     println!("\r");
     println!("------------------------------\r");
     println!("\r");
@@ -300,402 +284,344 @@ fn new_turn_system(entities: &mut Entities, _input: &HashMap<u8, bool>){
     println!("your cards are:\r");
     println!("\r");
 
-    if let Some(players) = entities.get(PLAYERS){
-
-        for player in players{
-
-            if let Some(ecs::Components::I(number)) = player.get(PLAYER_NUMBER){
-
-                if *number == active_player{
-
-                    if let Some(ecs::Components::V(hand)) = player.get(HAND){
-
-                        for (index, card) in hand.iter().enumerate() {
-
-                            if let (Some(value), Some(color)) = (card.get(VALUE), card.get(COLOR)) {
-
-                                let output = format!("{}: {} of {}", index+1, value, color);
-                                println!("{}\r", output.green());
-
-                            }
-
-                        }
-
-                        println!("\r");
-
-                    }
-
-                }
-
+    //print player-cards
+    if let Some(Components::V(hand)) = active_player.get(HAND) {
+        for (index, card) in hand.iter().enumerate() {
+            if let (Some(value), Some(color)) = (card.get("value"), card.get("color")) {
+                let output = format!("{}: {} of {}", index + 1, value, color);
+                println!("{}\r", output.green());
             }
-
         }
 
+        println!("\r");
     }
 
-    if let Some(games) = entities.get(GAMES){
-
-        if let Some(game) = games.get(0){
-
-            if let Some(ecs::Components::V(discard_pile)) = game.get(DISCARD_PILE){
-
-                if let Some(top_card) = discard_pile.last(){
-
-                    if let (Some(value), Some(color)) = (top_card.get(VALUE), top_card.get(COLOR)){
-
-                        let output = format!("top card is {} of {}", value, color);
-                        println!("{}\r", output.bold().blue());
-                        println!("\r");
-
-                    }
-
-                }
-
+    //print top card
+    let games = entities.get(GAMES)?;
+    let game = games.get(0)?;
+    // show top card in discard pile
+    if let Some(ecs::Components::V(discard_pile)) = game.get(DISCARD_PILE) {
+        if let Some(top_card) = discard_pile.last() {
+            if let (Some(value), Some(color)) = (top_card.get("value"), top_card.get("color")) {
+                let output = format!("top card is {} of {}", value, color);
+                println!("{}\r", output.bold().blue());
+                println!("\r");
             }
-
         }
-
     }
 
+    Some(())
 }
 
-fn play_cards_system(entities: &mut Entities, input: &HashMap<u8, bool>){
+fn get_played_card(
+    entities: &mut Entities,
+    input: &HashMap<u8, bool>,
+) -> Option<(HashMap<&'static str, Components>)> {
+    let games = entities.get("games")?;
+    let game = games.get(0)?;
+    let active_player_index = match game.get(ACTIVE_PLAYER) {
+        Some(Components::I(i)) => *i,
+        _ => return None,
+    };
 
-    let mut active_player: i32 = 1;
-    let mut temporary_stack: Vec<HashMap<&'static str, ecs::Components>> = vec![];
-    let mut played_card: HashMap<&'static str, ecs::Components> = HashMap::new();
+    let players = entities.get_mut(PLAYERS)?;
+    let active_player = players.get_mut(active_player_index - 1)?;
+    let mut played_card: HashMap<&'static str, Components> = HashMap::new();
 
-    if let Some(games) = entities.get(GAMES){
+    if let Some(Components::V(hand)) = active_player.get_mut(HAND) {
+        if !hand.is_empty() {
+            let (one, two, three, four) = (
+                input.get(&1u8).unwrap_or(&false),
+                input.get(&2u8).unwrap_or(&false),
+                input.get(&3u8).unwrap_or(&false),
+                input.get(&4u8).unwrap_or(&false),
+            );
 
-        if let Some(game) = games.get(0){
-
-            if let Some(ecs::Components::I(active_player_temp)) = game.get(ACTIVE_PLAYER){
-
-                active_player = *active_player_temp;
-
+            if *one && hand.len() >= 1 {
+                played_card = hand.remove(0);
+            } else if *two && hand.len() >= 2 {
+                played_card = hand.remove(1);
+            } else if *three && hand.len() >= 3 {
+                played_card = hand.remove(2);
+            } else if *four && hand.len() >= 4 {
+                played_card = hand.remove(3);
+            } else {
+                return None;
             }
 
         }
-
     }
 
-    if let Some(players) = entities.get_mut(PLAYERS){
+    Some(played_card)
+}
 
-        for player in players{
+fn change_turn(entities: &mut Entities) -> Option<()> {
+    let games = entities.get_mut(GAMES)?;
+    let game = games.get_mut(0)?;
+    let active_player_i = match game.get_mut(ACTIVE_PLAYER) {
+        Some(Components::I(current_player_index)) => current_player_index,
+        _ => return None,
+    };
+    *active_player_i = (*active_player_i % 4) + 1;
+    if let Some(Components::B(new_turn)) = game.get_mut(NEW_TURN) {
+        *new_turn = true;
+    }
 
-            if let Some(ecs::Components::I(number)) = player.get(PLAYER_NUMBER){
+    Some(())
+}
 
-                if *number == active_player{
+fn played_card_add_points(
+    entities: &mut Entities,
+    player_index: usize,
+    played_card_value: &&str,
+) -> Option<()> {
+    let mut players = entities.get_mut(PLAYERS)?;
+    let mut active_player = players.get_mut(player_index)?;
 
-                    if let Some(ecs::Components::V(hand)) = player.get_mut(HAND){
+    if let Some(ecs::Components::I(points)) = active_player.get_mut(POINTS) {
+        if *played_card_value == ACE
+            || *played_card_value == TEN
+            || *played_card_value == KING
+            || *played_card_value == QUEEN
+            || *played_card_value == JACK
+        {
+            *points = *points + 20;
+            println!("player{} scored 20 points\r", player_index);
+        } else {
+            *points = *points + 10;
+            println!("player{} scored 10 points\r", player_index);
+        }
+    }
 
-                        if !hand.is_empty(){
+    Some(())
+}
 
-                            println!("processing input");
+fn player_add_cardstack_points(
+    entities: &mut Entities,
+    player_index: usize,
+    cardstack: &Vec<HashMap<&'static str, Components>>,
+) -> Option<()> {
+    let mut players = entities.get_mut(PLAYERS)?;
+    let mut active_player = players.get_mut(player_index)?;
 
-                            let (one, two, three, four) = (input.get(&1u8).unwrap_or(&false), input.get(&2u8).unwrap_or(&false), input.get(&3u8).unwrap_or(&false), input.get(&4u8).unwrap_or(&false));
-
-                            if *one && hand.len() >= 1{
-
-                                played_card = hand.remove(0);
-                                println!("1 pressed");
-
-                            } else if *two && hand.len() >= 2{
-
-                                played_card = hand.remove(1);
-                                println!("2 pressed");
-
-                            } else if *three && hand.len() >= 3{
-
-                                played_card = hand.remove(2);
-                                println!("3 pressed");
-
-                            } else if *four && hand.len() >= 4{
-
-                                played_card = hand.remove(3);
-                                println!("4 pressed");
-
-                            } else {
-
-                                println!("no input");
-                                return;
-
-                            }
-
-                        }
-
-                    }
-
+    if let Some(ecs::Components::I(points)) = active_player.get_mut(POINTS) {
+        for card in cardstack {
+            if let Some(ecs::Components::S(value)) = card.get("value") {
+                if is_card_value_high_value(value) {
+                    *points = *points + 1;
+                    println!("player{} scored 1 point\r", player_index);
                 }
-
             }
-
         }
 
+        println!("\r");
+        Some(())
+    } else {
+        println!("could not find component points in player{}", player_index);
+        None
     }
+}
 
-    if let (Some(value), Some(color)) = (played_card.get(VALUE), played_card.get(COLOR)){
+fn get_active_player_index(entities: &mut Entities) -> Option<usize> {
+    let mut games = entities.get_mut(GAMES)?;
+    let game = games.get_mut(0)?;
+    if let Some(Components::I(i)) = game.get(ACTIVE_PLAYER) {
+        Some(*i)
+    } else {
+        None
+    }
+}
 
-        let output = format!("player{} has played {} of {}", active_player, value, color);
+fn play_cards_system(entities: &mut Entities, input: &HashMap<u8, bool>) -> Option<()> {
+    let mut played_card: HashMap<&'static str, Components> = HashMap::new();
+
+    let active_player_index = get_active_player_index(entities)?;
+
+    // get played card
+    played_card = get_played_card(entities, input)?; //hier geht er raus und discard pile ist leer
+
+    //print played card
+    if let (Some(value), Some(color)) = (played_card.get("value"), played_card.get("color")) {
+        let output = format!(
+            "player{} has played {} of {}",
+            active_player_index, value, color
+        );
         println!("{}\r", output.bold());
-
     }
 
-    if let Some(games) = entities.get_mut(GAMES){
+    let mut temporary_stack = {
+        let mut games = entities.get_mut(GAMES)?;
+        let mut game = games.get_mut(0)?;
+        let discard_pile = match game.get_mut(DISCARD_PILE) {
+            Some(Components::V(discard_pile)) => discard_pile,
+            _ => return None,
+        };
+        std::mem::take(discard_pile)
+    };
 
-        if let Some(game) = games.get_mut(0){
+    // new turn
+    change_turn(entities)?;
 
-            if let Some(ecs::Components::V(game_stack)) = game.get_mut(DISCARD_PILE){
+    if let Some(topcard) = temporary_stack.last() {
 
-                temporary_stack = std::mem::take(game_stack);
+        let top_card_value = match topcard.get(VALUE) {
+            Some(Components::S(top_card_value)) => top_card_value,
+            _ => return None,
+        };
 
+        let played_card_value = match played_card.get(VALUE) {
+            Some(Components::S(played_card_value)) => played_card_value,
+            _ => return None,
+        };
+
+        // pishpirik spiellogik
+        if played_card_value == top_card_value || *played_card_value == JACK {
+            if played_card_value == top_card_value {
+                println!(
+                    "player{} played the same card as top card\r",
+                    active_player_index
+                );
+            } else {
+                println!("player{} played a Jack\r", active_player_index);
             }
 
-            if let Some(ecs::Components::I(active_player_temp)) = game.get_mut(ACTIVE_PLAYER){
+            if temporary_stack.len() == 1 && played_card_value == top_card_value {
+                println!("player{} got extra points\r", active_player_index);
 
-                *active_player_temp = (*active_player_temp % 4) + 1;
-
+                // add points to player
+                played_card_add_points(entities, active_player_index, played_card_value)?;
             }
 
-            if let Some(ecs::Components::B(new_turn)) = game.get_mut(NEW_TURN){
+            temporary_stack.push(played_card);
 
-                *new_turn = true;
+            println!("player{} took the discard pile\r", active_player_index);
 
-            }
+            //add player points
+            player_add_cardstack_points(entities, active_player_index, &temporary_stack)?;
+            //add cards to player stash
+            add_stash_to_player(entities, active_player_index, &mut temporary_stack);
 
+            //print player stash
+            print_player_stash(entities, active_player_index)?;
+
+            return Some(());
         }
-
-    }
-
-    if let Some(top_card) = temporary_stack.last(){
-
-        if let Some(ecs::Components::S(top_card_value)) = top_card.get(VALUE){
-
-            if let Some(ecs::Components::S(played_card_value)) = played_card.get(VALUE){
-
-                if played_card_value == top_card_value || *played_card_value == "Jack"{
-
-                    if played_card_value == top_card_value{
-
-                        println!("player{} played the same card as top card\r", active_player);
-
-                    } else {
-
-                        println!("player{} played a Jack\r", active_player);
-
-                    }
-
-                    if let Some(players) = entities.get_mut(PLAYERS){
-
-                        for player in players{
-
-                            if let Some(ecs::Components::I(number)) = player.get_mut(PLAYER_NUMBER){
-
-                                if *number == active_player{
-
-                                    if temporary_stack.len() == 1 && played_card_value == top_card_value{
-
-                                        println!("player{} got extra points\r", active_player);
-
-                                        if let Some(ecs::Components::I(points)) = player.get_mut(POINTS){
-
-                                            if is_card_value_high_value(*played_card_value) {
-
-                                                *points = *points + 20;
-                                                println!("player{} scored 20 points\r", active_player);
-
-
-                                            } else {
-
-                                                *points = *points + 10;
-                                                println!("player{} scored 10 points\r", active_player);
-
-                                            }
-
-                                        }
-
-                                    }
-
-                                    temporary_stack.push(played_card);
-
-                                    println!("player{} took the discard pile\r", active_player);
-
-                                    if let Some(ecs::Components::I(points)) = player.get_mut(POINTS){
-
-                                        for card in &temporary_stack{
-
-                                            if let Some(ecs::Components::S(value)) = card.get(VALUE){
-
-                                                if is_card_value_high_value(*value) {
-
-                                                    *points = *points + 1;
-                                                    println!("player{} scored 1 point\r", active_player);
-
-                                                }
-
-                                            }
-
-                                        }
-
-                                        println!("\r");
-
-                                    } else {
-
-                                        println!("could not find component points in player{}", active_player);
-
-                                    }
-
-                                    if let Some(ecs::Components::V(stash)) = player.get_mut(STASH){
-
-                                        stash.append(&mut temporary_stack);
-
-                                    }
-
-                                    if let Some(ecs::Components::V(stash)) = player.get(STASH){
-
-                                        println!("player{}s stash is now:\r", active_player);
-
-                                        for card in stash{
-
-                                            if let (Some(value), Some(color)) = (card.get(VALUE), card.get(COLOR)){
-
-                                                let output = format!("{} of {}", value, color);
-                                                println!("{}\r", output.italic());
-
-                                            }
-
-                                        }
-
-                                    } else {
-
-                                        println!("error could not find player{}s stash", active_player);
-
-                                    }
-
-                                    if let Some(ecs::Components::I(points)) = player.get(POINTS){
-
-                                        println!("player{}s total points are now {}\r", active_player, points);
-
-                                    }
-
-                                    return;
-
-                                }
-
-                            }
-
-                        }
-
-                    }
-
-                }
-
-            }
-
-        }
-
     }
 
     temporary_stack.push(played_card);
 
-    if let Some(games) = entities.get_mut(GAMES){
+    let mut games = entities.get_mut(GAMES)?;
+    let mut game = games.get_mut(0)?;
+    game.insert("discard pile", ecs::Components::V(temporary_stack));
 
-        if let Some(game) = games.get_mut(0){
-
-            game.insert(DISCARD_PILE, ecs::Components::V(temporary_stack));
-
-        }
-
-    }
-
+    Some(())
 }
 
-fn draw_cards_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>, _input: &HashMap<u8, bool>){
+fn print_player_stash(entities: &mut Entities, player_index: usize) -> Option<()> {
+    let players = entities.get(PLAYERS)?;
+    let active_player = players.get(player_index)?;
 
-    if all_hands_empty(entities){
+    if let Some(ecs::Components::V(stash)) = active_player.get(STASH) {
+        println!("player{}s stash is now:\r", player_index);
 
+        for card in stash {
+            if let (Some(value), Some(color)) = (card.get(VALUE), card.get(COLOR)) {
+                let output = format!("{} of {}", value, color);
+                println!("{}\r", output.italic());
+            }
+        }
+    } else {
+        println!("error could not find player{}s stash", player_index);
+        return None;
+    }
+
+    //print player total points
+    if let Some(ecs::Components::I(points)) = active_player.get(POINTS) {
+        println!("player{}s total points are now {}\r", player_index, points);
+        Some(())
+    } else {
+        None
+    }
+}
+
+fn add_stash_to_player(
+    entities: &mut Entities,
+    player_index: usize,
+    temporary_stash: &mut Vec<HashMap<&'static str, Components>>,
+) -> Option<()> {
+    let mut players = entities.get_mut(PLAYERS)?;
+    let mut active_player = players.get_mut(player_index)?;
+
+    if let Some(ecs::Components::V(stash)) = active_player.get_mut(STASH) {
+        stash.append(temporary_stash);
+        Some(())
+    } else {
+        None
+    }
+}
+
+fn draw_cards_system(entities: &mut Entities, _input: &HashMap<u8, bool>) -> Option<()> {
+    if all_hands_empty(entities) {
         let mut drawn_cards: Vec<HashMap<&'static str, ecs::Components>> = vec![];
         let mut draw_pile_size = 0;
+        let games = entities.get_mut(GAMES)?;
+        let game = games.get_mut(0)?;
+        let draw_pile = match game.get_mut(DRAW_PILE) {
+            Some(Components::V(draw_pile)) => draw_pile,
+            _ => return None,
+        };
 
-        if let Some(games) = entities.get_mut(GAMES){
 
-            if let Some(game) = games.get_mut(0){
-
-                if let Some(ecs::Components::V(draw_pile)) = game.get_mut(DRAW_PILE){
-
-                    for _ in 0..(4*4){
-
-                        if let Some(card) = draw_pile.pop(){
-
-                            drawn_cards.push(card);
-
-                        } else {
-
-                            let output = format!("all cards have been played");
-                            println!("{}\r", output.bold().red());
-                            println!("\r");
-                            return;
-
-                        }
-
-                    }
-
-                    draw_pile_size = draw_pile.len();
-
-                }
-
+        for _ in 0..(4 * 4) {
+            if let Some(card) = draw_pile.pop() {
+                drawn_cards.push(card);
+            } else {
+                let output = format!("all cards have been played");
+                println!("{}\r", output.bold().red());
+                println!("\r");
+                return Some(());
             }
-
         }
+
+        draw_pile_size = draw_pile.len();
+
 
         let output = format!("all hands are empty, everyone will draw 4 cards");
         println!("{}\r", output.bold().yellow());
 
-        if let Some(players) = entities.get_mut(PLAYERS){
 
-            for player in players{
+        let players = entities.get_mut(PLAYERS)?;
 
-                if let Some(ecs::Components::V(hand)) = player.get_mut(HAND){
-
-                    for _ in 0..4{
-
-                        if let Some(card) = drawn_cards.pop(){
-
-                            hand.push(card);
-
-                        }
-
-                    }
-
+        // give players cards
+        for player in players.iter_mut() {
+            let player_hand = match player.get_mut(HAND) {
+                Some(Components::V(player_hand)) => player_hand,
+                _ => return None,
+            };
+            for _ in 0..4 {
+                if let Some(card) = drawn_cards.pop() {
+                    player_hand.push(card);
                 }
-
             }
-
         }
 
-        if let Some(players) = entities.get(PLAYERS){
+        // print drawn player cards
+        for player in players.iter_mut() {
+            println!("\r");
 
-            for player in players{
+            let player_hand = match player.get(HAND) {
+                Some(Components::V(player_hand)) => player_hand,
+                _ => return None,
+            };
 
-                println!("\r");
-
-                if let Some(ecs::Components::V(hand)) = player.get(HAND){
-
-                    for card in hand{
-
-                        if let (Some(name), Some(value), Some(color)) = (player.get(NAME), card.get(VALUE), card.get(COLOR)){
-
-                            let output = format!("{} has drawn {} of {}\r", name, value, color);
-                            println!("{}", output.italic());
-
-                        }
-
-                    }
-
+            for card in player_hand {
+                if let (Some(name), Some(value), Some(color)) =
+                    (player.get(NAME), card.get(VALUE), card.get(COLOR))
+                {
+                    let output = format!("{} has drawn {} of {}\r", name, value, color);
+                    println!("{}", output.italic());
                 }
-
             }
-
         }
 
         println!("\r");
@@ -703,84 +629,53 @@ fn draw_cards_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static s
         println!("\r");
 
     }
-
+    Some(())
 }
 
-fn exit_game(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>){
-
+fn exit_game(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>) {
     println!("\r");
     let output = format!("the game is now over");
     println!("{}\r", output.bold().red());
     println!("\r");
 
-    if let Some(players) = entities.get(PLAYERS){
-
-        for player in players{
-
-            if let Some(number) = player.get(PLAYER_NUMBER){
-
+    if let Some(players) = entities.get(PLAYERS) {
+        for player in players {
+            if let Some(number) = player.get("number") {
                 let output = format!("player{}s stash:", number);
                 println!("{}\r", output.bold().blue())
-
             }
 
-            if let Some(ecs::Components::V(stash)) = player.get(STASH){
-
-                for card in stash{
-
-                    if let (Some(value), Some(color)) = (card.get(VALUE), card.get(COLOR)){
-
+            if let Some(ecs::Components::V(stash)) = player.get(STASH) {
+                for card in stash {
+                    if let (Some(value), Some(color)) = (card.get(VALUE), card.get(COLOR)) {
                         println!("{} of {}\r", value, color);
-
                     }
-
                 }
-
             }
 
-            if let Some(ecs::Components::I(points)) = player.get(POINTS){
-
+            if let Some(ecs::Components::I(points)) = player.get(POINTS) {
                 let output = format!("total points: {}", points);
                 println!("{}\r", output.bold().blue());
                 println!("\r");
-
             }
-
         }
-
     }
 
     //ecs::disable_input();
     exit(0);
-
 }
 
-fn exit_game_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, ecs::Components>>>, _input: &HashMap<u8, bool>){
-
+fn exit_game_system(entities: &mut Entities, input: &HashMap<u8, bool>) -> Option<()> {
     let mut draw_pile_empty = false;
+    let mut games = entities.get_mut(GAMES)?;
+    let mut game = games.get_mut(0)?;
+    let draw_pile = match game.get_mut(DRAW_PILE) {
+        Some(Components::V(draw_pile)) => draw_pile,
+        _ => return None,
+    };
 
-    if let Some(games) = entities.get(GAMES){
-
-        if let Some(game) = games.get(0){
-
-            if let Some(ecs::Components::V(draw_pile)) = game.get(DRAW_PILE){
-
-                if draw_pile.len() <= 0{
-
-                    draw_pile_empty = true;
-
-                }
-
-            }
-
-        }
-
-    }
-
-    if draw_pile_empty && all_hands_empty(entities){
-
+    if draw_pile.is_empty() && all_hands_empty(entities) {
         exit_game(entities);
-
     }
 
 //    if let Some(back) = input.get("back"){
@@ -793,31 +688,27 @@ fn exit_game_system(entities: &mut HashMap<&'static str, Vec<HashMap<&'static st
 //
 //    }
 
+    Some(())
 }
 
-fn create_deck() -> Vec<HashMap<&'static str, ecs::Components>>{
-
+fn create_deck() -> Vec<HashMap<&'static str, ecs::Components>> {
     let mut cards = vec![];
     let types = vec![CLUBS, DIAMONDS, HEARTS, SPADES];
     let values = vec![TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, JACK, QUEEN, KING, ACE];
 
     let mut counter = 0;
 
-    for color in &types{
-
-        for value in &values{
-
+    for color in &types {
+        for value in &values {
             let mut new_card = ecs::create_new_entity();
-            new_card.insert("color", ecs::Components::S(color));
-            new_card.insert("value", ecs::Components::S(value));
+            new_card.insert(COLOR, ecs::Components::S(color));
+            new_card.insert(VALUE, ecs::Components::S(value));
             cards.push(new_card);
 
             println!("generated {} of {}\r", value, color);
 
             counter = counter + 1;
-
         }
-
     }
 
     println!("\r");
@@ -825,9 +716,8 @@ fn create_deck() -> Vec<HashMap<&'static str, ecs::Components>>{
     println!("\r");
 
     cards
-
 }
 
 fn is_card_value_high_value(value: &'static str) -> bool {
-    return value == ACE || value == TEN || value == KING || value == QUEEN || value == JACK
+    value == ACE || value == TEN || value == KING || value == QUEEN || value == JACK
 }
