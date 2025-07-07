@@ -46,6 +46,9 @@ const QUEEN: &'static str = "Queen";
 const KING: &'static str = "King";
 const ACE: &'static str = "Ace";
 
+const AMOUNT_PLAYERS: usize = 4;
+const AMOUNT_OF_CARDS_PER_PLAYER: usize = 4;
+
 fn fill_discard_pile(entities: &mut Entities, cards: &mut Cards) -> Option<()> {
     let games = entities.get_mut(GAMES)?;
     let game = games.get_mut(0)?;
@@ -161,8 +164,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Err("Failed to fill the draw pile".into());
         }
     }
-
-    println!("CARDS VEC SOLLTE HIER 0 SEIN {}", cards.len());
 
     ecs::add_system(&mut systems, exit_game_system);
     ecs::add_system(&mut systems, draw_cards_system);
@@ -428,7 +429,7 @@ fn play_cards_system(entities: &mut Entities, input: &HashMap<u8, bool>) -> Opti
     let active_player_index = get_active_player(entities)?;
 
     // get played card
-    played_card = get_played_card(entities, input)?; //hier geht er raus und discard pile ist leer
+    played_card = get_played_card(entities, input)?;
 
     //print played card
     if let (Some(value), Some(color)) = (played_card.get("value"), played_card.get("color")) {
@@ -562,7 +563,7 @@ fn draw_cards_system(entities: &mut Entities, _input: &HashMap<u8, bool>) -> Opt
         };
 
 
-        for _ in 0..(4 * 4) {
+        for _ in 0..(AMOUNT_PLAYERS * AMOUNT_OF_CARDS_PER_PLAYER) {
             if let Some(card) = draw_pile.pop() {
                 drawn_cards.push(card);
             } else {
@@ -588,7 +589,7 @@ fn draw_cards_system(entities: &mut Entities, _input: &HashMap<u8, bool>) -> Opt
                 Some(Components::V(player_hand)) => player_hand,
                 _ => return None,
             };
-            for _ in 0..4 {
+            for _ in 0..AMOUNT_OF_CARDS_PER_PLAYER {
                 if let Some(card) = drawn_cards.pop() {
                     player_hand.push(card);
                 }
