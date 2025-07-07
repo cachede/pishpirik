@@ -489,7 +489,7 @@ fn play_cards_system(entities: &mut Entities, input: &HashMap<u8, bool>) -> Opti
                 println!("player{} got extra points\r", active_player_index);
 
                 // add points to player
-                played_card_add_points(entities, active_player_index, played_card_value)?;
+                played_card_add_points(entities, active_player_index - 1, played_card_value)?;
             }
 
             temporary_stack.push(played_card);
@@ -497,9 +497,9 @@ fn play_cards_system(entities: &mut Entities, input: &HashMap<u8, bool>) -> Opti
             println!("player{} took the discard pile\r", active_player_index);
 
             //add player points
-            player_add_cardstack_points(entities, active_player_index, &temporary_stack)?;
+            player_add_cardstack_points(entities, active_player_index - 1, &temporary_stack)?;
             //add cards to player stash
-            add_stash_to_player(entities, active_player_index, &mut temporary_stack);
+            add_stash_to_player(entities, active_player_index - 1, &mut temporary_stack);
 
             //print player stash
             print_player_stash(entities, active_player_index)?;
