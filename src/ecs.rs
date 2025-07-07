@@ -8,7 +8,7 @@ use serde::{Serialize, Deserialize};
 pub enum Components {
 
     B(bool),
-    I(i32),
+    I(usize),
     S(&'static str),
     V(Vec<HashMap<&'static str, Components>>)
 
@@ -43,25 +43,32 @@ pub fn create_new_entity() -> HashMap<&'static str, Components>{
     HashMap::new()
 }
 
-pub fn new_systems_repo() -> Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>)> {
+pub fn new_systems_repo() -> Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>) -> Option<()>> {
     vec![]
 }
 
 pub fn add_system(
-    systems: &mut Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>)>,
-    system: fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>)
+    systems: &mut Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>) -> Option<()>>,
+    system: fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>) -> Option<()>,
 ){
     systems.push(system);
 }
 
 pub fn process(
     entities: &mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>,
-    systems: &Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>)>,
+    systems: &Vec<fn(&mut HashMap<&'static str, Vec<HashMap<&'static str, Components>>>, &HashMap<u8, bool>) -> Option<()>>,
     input: &HashMap<u8, bool>
 ){
     for system in systems{
 
-        system(entities, &input);
+        match system(entities, &input) {
+            Some(()) => {
+                // all good
+            },
+            None => {
+                // some kind of error in system TODO
+            }
+        }
 
     }
 }
